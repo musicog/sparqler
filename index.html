@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sparqler · in-browser SPARQL 1.1 over Turtle</title>
+  <meta name="description" content="A tiny client-side playground for running SPARQL 1.1 SELECT queries against your own Turtle data. Nothing leaves your browser." />
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --surface: #ffffff;
+      --surface-2: #f1f3f9;
+      --border: #e3e6ef;
+      --border-strong: #cbd0de;
+      --text: #1a1d29;
+      --text-muted: #5b6478;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --accent-hover: #4338ca;
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+      --success: #047857;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+      --radius: 12px;
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0f1a;
+        --surface: #131826;
+        --surface-2: #1a2030;
+        --border: #242b3d;
+        --border-strong: #38415a;
+        --text: #e6e9f2;
+        --text-muted: #8d96ad;
+        --accent: #818cf8;
+        --accent-soft: #1e2243;
+        --accent-hover: #a5b4fc;
+        --danger: #fca5a5;
+        --danger-soft: #2a1414;
+        --success: #6ee7b7;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 700;
+      font-family: var(--mono);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .tagline {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.05s;
+    }
+
+    button:hover { background: var(--surface-2); }
+    button:active { transform: translateY(1px); }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      padding: 8px 18px;
+      box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
+    }
+
+    button.primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    button.primary:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    .kbd {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.18);
+      margin-left: 6px;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: minmax(220px, 38vh) 1fr;
+      gap: 16px;
+      padding: 16px 24px 24px;
+      min-height: 0;
+    }
+
+    .pane {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      flex-shrink: 0;
+    }
+
+    .pane-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .pane-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .pane-actions button {
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: transparent;
+      border-color: transparent;
+    }
+    .pane-actions button:hover {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .results { grid-column: 1 / -1; }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      border: none;
+      resize: none;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      tab-size: 2;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+
+    .results-body {
+      flex: 1;
+      overflow: auto;
+      padding: 0;
+    }
+
+    .results-empty, .results-status {
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .results-empty .glyph {
+      font-size: 28px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+    }
+
+    .meta-bar.hidden { display: none; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-strong);
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      letter-spacing: 0.02em;
+      z-index: 1;
+    }
+
+    tbody td {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    tbody tr:hover td { background: var(--surface-2); }
+
+    .term-iri { color: var(--accent); }
+    .term-iri .prefix { color: var(--text-muted); }
+    .term-literal { color: var(--text); }
+    .term-literal .lang,
+    .term-literal .datatype {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .term-bnode { color: var(--success); }
+    .term-unbound { color: var(--text-muted); font-style: italic; }
+
+    .error {
+      margin: 16px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: var(--danger-soft);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .error strong {
+      display: block;
+      margin-bottom: 4px;
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+
+    footer {
+      padding: 12px 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 880px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(180px, 28vh) minmax(180px, 28vh) 1fr;
+      }
+      .results { grid-column: 1; }
+      header { padding: 12px 16px; }
+      main { padding: 12px 16px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">S</div>
+      <div>
+        <h1>Sparqler</h1>
+        <div class="tagline">SPARQL 1.1 over your Turtle, entirely in your browser.</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="resetBtn" title="Restore the example query &amp; data">Reset example</button>
+      <button id="runBtn" class="primary">Run query<span class="kbd">⌘↵</span></button>
+    </div>
+  </header>
+
+  <main>
+    <section class="pane">
+      <div class="pane-header">
+        <span class="pane-title">SPARQL</span>
+        <div class="pane-actions">
+          <button data-clear="sparql">Clear</button>
+        </div>
+      </div>
+      <textarea id="sparql" spellcheck="false" placeholder="Write a SPARQL 1.1 SELECT query here…"></textarea>
+    </section>
+
+    <section class="pane">
+      <div class="pane-header">
+        <span class="pane-title">Turtle</span>
+        <div class="pane-actions">
+          <button data-clear="turtle">Clear</button>
+        </div>
+      </div>
+      <textarea id="turtle" spellcheck="false" placeholder="Paste or type Turtle (.ttl) data here…"></textarea>
+    </section>
+
+    <section class="pane results">
+      <div class="pane-header">
+        <span class="pane-title">Results</span>
+        <div class="pane-actions">
+          <button id="copyTsv" disabled>Copy TSV</button>
+        </div>
+      </div>
+      <div id="resultsBody" class="results-body">
+        <div class="results-empty">
+          <div class="glyph">⌁</div>
+          <div>Press <strong>Run query</strong> to see results here.</div>
+        </div>
+      </div>
+      <div id="metaBar" class="meta-bar hidden">
+        <span id="metaText"></span>
+        <span id="timingText"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Powered by <a href="https://comunica.dev" target="_blank" rel="noopener">Comunica</a> &amp; <a href="https://github.com/rdfjs/N3.js" target="_blank" rel="noopener">N3.js</a>. All processing happens locally — nothing is uploaded.
+  </footer>
+
+  <script src="https://unpkg.com/n3/browser/n3.min.js"></script>
+  <script src="https://rdf.js.org/comunica-browser/versions/latest/engines/query-sparql/comunica-browser.js"></script>
+  <script>
+    const EXAMPLE_TURTLE = `@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix schema: <http://schema.org/> .
+@prefix ex:   <http://example.org/people/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+ex:alice a foaf:Person ;
+  foaf:name "Alice Liddell" ;
+  foaf:age 30 ;
+  schema:jobTitle "Curator" ;
+  foaf:knows ex:bob, ex:carol .
+
+ex:bob a foaf:Person ;
+  foaf:name "Bob Robertson"@en ;
+  foaf:age 25 ;
+  schema:jobTitle "Cartographer" ;
+  foaf:knows ex:alice .
+
+ex:carol a foaf:Person ;
+  foaf:name "Carol Carrington" ;
+  foaf:age 42 ;
+  schema:jobTitle "Composer" ;
+  foaf:knows ex:alice, ex:bob, ex:dave .
+
+ex:dave a foaf:Person ;
+  foaf:name "Dave Davidson" ;
+  foaf:age 19 ;
+  schema:jobTitle "Apprentice" .
+`;
+
+    const EXAMPLE_SPARQL = `PREFIX foaf:   <http://xmlns.com/foaf/0.1/>
+PREFIX schema: <http://schema.org/>
+
+# Who knows whom, and what they do for a living?
+SELECT ?name ?job ?friendName WHERE {
+  ?person  a foaf:Person ;
+           foaf:name ?name ;
+           schema:jobTitle ?job ;
+           foaf:knows ?friend .
+  ?friend  foaf:name ?friendName .
+}
+ORDER BY ?name ?friendName
+`;
+
+    const sparqlEl = document.getElementById('sparql');
+    const turtleEl = document.getElementById('turtle');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const resultsBody = document.getElementById('resultsBody');
+    const metaBar = document.getElementById('metaBar');
+    const metaText = document.getElementById('metaText');
+    const timingText = document.getElementById('timingText');
+    const copyTsvBtn = document.getElementById('copyTsv');
+
+    const STORAGE_KEY = 'sparqler.v1';
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          sparql: sparqlEl.value,
+          turtle: turtleEl.value,
+        }));
+      } catch { /* quota or private mode */ }
+    }
+
+    function setExample() {
+      sparqlEl.value = EXAMPLE_SPARQL;
+      turtleEl.value = EXAMPLE_TURTLE;
+      saveToStorage();
+    }
+
+    const saved = loadFromStorage();
+    if (saved && (saved.sparql || saved.turtle)) {
+      sparqlEl.value = saved.sparql ?? '';
+      turtleEl.value = saved.turtle ?? '';
+    } else {
+      setExample();
+    }
+
+    sparqlEl.addEventListener('input', saveToStorage);
+    turtleEl.addEventListener('input', saveToStorage);
+
+    document.querySelectorAll('[data-clear]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const which = btn.dataset.clear;
+        if (which === 'sparql') sparqlEl.value = '';
+        if (which === 'turtle') turtleEl.value = '';
+        saveToStorage();
+      });
+    });
+
+    resetBtn.addEventListener('click', setExample);
+
+    // Tab inserts two spaces inside textareas
+    for (const ta of [sparqlEl, turtleEl]) {
+      ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab' && !e.shiftKey) {
+          e.preventDefault();
+          const { selectionStart: s, selectionEnd: end } = ta;
+          ta.setRangeText('  ', s, end, 'end');
+          saveToStorage();
+        }
+      });
+    }
+
+    // Cmd/Ctrl+Enter runs the query from anywhere
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runQuery();
+      }
+    });
+
+    runBtn.addEventListener('click', runQuery);
+
+    function parseTurtle(text) {
+      return new Promise((resolve, reject) => {
+        const parser = new N3.Parser();
+        const store = new N3.Store();
+        const prefixes = {};
+        parser.parse(text, (error, quad, parsedPrefixes) => {
+          if (error) return reject(error);
+          if (quad) {
+            store.addQuad(quad);
+          } else {
+            Object.assign(prefixes, parsedPrefixes || {});
+            resolve({ store, prefixes });
+          }
+        });
+      });
+    }
+
+    function shortenIri(iri, prefixes) {
+      for (const [name, ns] of Object.entries(prefixes)) {
+        const nsStr = typeof ns === 'string' ? ns : ns.value;
+        if (iri.startsWith(nsStr) && iri.length > nsStr.length) {
+          const local = iri.slice(nsStr.length);
+          if (/^[A-Za-z_][\w.-]*$/.test(local)) {
+            return { prefix: name + ':', local };
+          }
+        }
+      }
+      return null;
+    }
+
+    const XSD = 'http://www.w3.org/2001/XMLSchema#';
+    const RDF_LANG_STRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
+    const PLAIN_LITERAL_DATATYPES = new Set([
+      XSD + 'string',
+      RDF_LANG_STRING,
+    ]);
+
+    function renderTerm(term, prefixes) {
+      if (!term) {
+        const span = document.createElement('span');
+        span.className = 'term-unbound';
+        span.textContent = '—';
+        return span;
+      }
+      if (term.termType === 'NamedNode') {
+        const span = document.createElement('span');
+        span.className = 'term-iri';
+        const short = shortenIri(term.value, prefixes);
+        if (short) {
+          const p = document.createElement('span');
+          p.className = 'prefix';
+          p.textContent = short.prefix;
+          span.appendChild(p);
+          span.appendChild(document.createTextNode(short.local));
+          span.title = term.value;
+        } else {
+          span.textContent = '<' + term.value + '>';
+        }
+        return span;
+      }
+      if (term.termType === 'Literal') {
+        const span = document.createElement('span');
+        span.className = 'term-literal';
+        const value = document.createElement('span');
+        value.textContent = '"' + term.value + '"';
+        span.appendChild(value);
+        if (term.language) {
+          const lang = document.createElement('span');
+          lang.className = 'lang';
+          lang.textContent = '@' + term.language;
+          span.appendChild(lang);
+        } else if (term.datatype && !PLAIN_LITERAL_DATATYPES.has(term.datatype.value)) {
+          const dt = document.createElement('span');
+          dt.className = 'datatype';
+          const short = shortenIri(term.datatype.value, prefixes);
+          dt.textContent = '^^' + (short ? short.prefix + short.local : '<' + term.datatype.value + '>');
+          dt.title = term.datatype.value;
+          span.appendChild(dt);
+        }
+        return span;
+      }
+      if (term.termType === 'BlankNode') {
+        const span = document.createElement('span');
+        span.className = 'term-bnode';
+        span.textContent = '_:' + term.value;
+        return span;
+      }
+      const fallback = document.createElement('span');
+      fallback.textContent = term.value ?? String(term);
+      return fallback;
+    }
+
+    function termToString(term, prefixes) {
+      if (!term) return '';
+      if (term.termType === 'NamedNode') {
+        const short = shortenIri(term.value, prefixes);
+        return short ? short.prefix + short.local : '<' + term.value + '>';
+      }
+      if (term.termType === 'Literal') {
+        let s = '"' + term.value.replace(/"/g, '\\"') + '"';
+        if (term.language) s += '@' + term.language;
+        else if (term.datatype && !PLAIN_LITERAL_DATATYPES.has(term.datatype.value)) {
+          const short = shortenIri(term.datatype.value, prefixes);
+          s += '^^' + (short ? short.prefix + short.local : '<' + term.datatype.value + '>');
+        }
+        return s;
+      }
+      if (term.termType === 'BlankNode') return '_:' + term.value;
+      return String(term.value ?? '');
+    }
+
+    function showError(title, detail) {
+      resultsBody.innerHTML = '';
+      const box = document.createElement('div');
+      box.className = 'error';
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      box.appendChild(heading);
+      box.appendChild(document.createTextNode(detail));
+      resultsBody.appendChild(box);
+      metaBar.classList.add('hidden');
+      copyTsvBtn.disabled = true;
+      lastTsv = '';
+    }
+
+    function showStatus(text) {
+      resultsBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'results-status';
+      div.textContent = text;
+      resultsBody.appendChild(div);
+    }
+
+    let lastTsv = '';
+
+    function renderTable(variables, rows, prefixes, elapsedMs) {
+      resultsBody.innerHTML = '';
+
+      if (rows.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'results-status';
+        div.textContent = 'No results — the query ran cleanly but produced zero bindings.';
+        resultsBody.appendChild(div);
+      } else {
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        for (const v of variables) {
+          const th = document.createElement('th');
+          th.textContent = '?' + v;
+          headRow.appendChild(th);
+        }
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+          for (const v of variables) {
+            const td = document.createElement('td');
+            td.appendChild(renderTerm(row.get(v), prefixes));
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        resultsBody.appendChild(table);
+      }
+
+      const lines = [variables.map(v => '?' + v).join('\t')];
+      for (const row of rows) {
+        lines.push(variables.map(v => termToString(row.get(v), prefixes)).join('\t'));
+      }
+      lastTsv = lines.join('\n');
+      copyTsvBtn.disabled = rows.length === 0;
+
+      metaBar.classList.remove('hidden');
+      metaText.textContent = `${rows.length} result${rows.length === 1 ? '' : 's'} · ${variables.length} variable${variables.length === 1 ? '' : 's'}`;
+      timingText.textContent = `${elapsedMs.toFixed(0)} ms`;
+    }
+
+    copyTsvBtn.addEventListener('click', async () => {
+      if (!lastTsv) return;
+      try {
+        await navigator.clipboard.writeText(lastTsv);
+        const original = copyTsvBtn.textContent;
+        copyTsvBtn.textContent = 'Copied!';
+        setTimeout(() => { copyTsvBtn.textContent = original; }, 1200);
+      } catch {
+        showError('Clipboard error', 'Could not copy to clipboard — your browser may have blocked it.');
+      }
+    });
+
+    let engine = null;
+    function getEngine() {
+      if (!engine) engine = new Comunica.QueryEngine();
+      return engine;
+    }
+
+    async function runQuery() {
+      const query = sparqlEl.value.trim();
+      const turtle = turtleEl.value;
+
+      if (!query) {
+        showError('Empty query', 'Write a SPARQL SELECT query in the left pane.');
+        return;
+      }
+
+      runBtn.disabled = true;
+      const originalLabel = runBtn.innerHTML;
+      runBtn.textContent = 'Running…';
+      showStatus('Parsing Turtle and executing query…');
+
+      const t0 = performance.now();
+
+      let parsed;
+      try {
+        parsed = await parseTurtle(turtle);
+      } catch (err) {
+        runBtn.disabled = false;
+        runBtn.innerHTML = originalLabel;
+        showError('Turtle parse error', err.message || String(err));
+        return;
+      }
+
+      try {
+        const eng = getEngine();
+        const result = await eng.query(query, { sources: [parsed.store] });
+
+        if (result.resultType !== 'bindings') {
+          runBtn.disabled = false;
+          runBtn.innerHTML = originalLabel;
+          showError(
+            'Unsupported query form',
+            `This playground supports SELECT queries only. Got: ${result.resultType.toUpperCase()}.`
+          );
+          return;
+        }
+
+        const metadata = await result.metadata();
+        const variables = (metadata.variables || []).map(v =>
+          typeof v === 'string' ? v : (v.variable ? v.variable.value : v.value)
+        );
+
+        const bindingsStream = await result.execute();
+        const rows = await bindingsStream.toArray();
+        const elapsed = performance.now() - t0;
+
+        // Merge in any common prefixes from the query so result IRIs render compactly.
+        const queryPrefixes = extractQueryPrefixes(query);
+        const allPrefixes = { ...queryPrefixes, ...parsed.prefixes };
+
+        renderTable(variables, rows, allPrefixes, elapsed);
+      } catch (err) {
+        showError('Query error', err.message || String(err));
+      } finally {
+        runBtn.disabled = false;
+        runBtn.innerHTML = originalLabel;
+      }
+    }
+
+    function extractQueryPrefixes(query) {
+      const prefixes = {};
+      const re = /PREFIX\s+([A-Za-z][\w-]*)\s*:\s*<([^>]*)>/gi;
+      let m;
+      while ((m = re.exec(query)) !== null) {
+        prefixes[m[1]] = m[2];
+      }
+      return prefixes;
+    }
+  </script>
+</body>
+</html>
